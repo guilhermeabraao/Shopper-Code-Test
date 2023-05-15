@@ -16,34 +16,45 @@ const ValidateProducts = async (req, res) => {
 
         const validatedProducts = [];
         for (let product of newPriceProducts) {
-            const productInDB = await knex('products').where({ code: product.productCode }).first();
             const productNewPrice = {
                 code: product.productCode,
-                name: productInDB.name,
-                actualPrice: productInDB.sales_price,
+                name: '',
+                actualPrice: '',
                 newPrice: product.newPrice,
                 valid: true,
                 invalidArgument: ''
+            };
+
+            if (await validateCode(productNewPrice)) {
+                validatedProducts.push(productNewPrice)
+                continue;
             }
 
-            ValidPrice(productNewPrice, product, productInDB);
+            const productInDB = await knex('products').where({ code: product.productCode }).first();
+
+            productNewPrice.name = productInDB.name;
+            productNewPrice.actualPrice = productInDB.sales_price;
+
+            ValidatePrice(productNewPrice, product, productInDB);
 
             if (await IsPack(product.productCode)) {
                 const packInfos = await knex('packs').where({ pack_id: product.productCode })
                 let packNewPrice = 0;
                 for (let packInfo of packInfos) {
                     const filteredProduct = validatedProducts.filter(obj => obj.code === packInfo.product_id);
-                    if (!filteredProduct) {
+                    if (filteredProduct.length < 1) {
                         productNewPrice.valid = false;
                         productNewPrice.invalidArgument = 'Produtos do pacote não informados no arquivo'
-                        return;
+                    } else {
+                        packNewPrice += Math.fround(filteredProduct[0].newPrice * packInfo.qty)
                     }
-                    packNewPrice += Math.fround(filteredProduct[0].newPrice * packInfo.qty)
                 }
-                packNewPrice = packNewPrice.toFixed(2);
-                if (packNewPrice !== product.newPrice) {
-                    productNewPrice.valid = false;
-                    productNewPrice.invalidArgument = 'Preço do pacote não condiz com o valor unitário dos produtos'
+                if (packNewPrice !== 0) {
+                    packNewPrice = packNewPrice.toFixed(2);
+                    if (packNewPrice !== product.newPrice) {
+                        productNewPrice.valid = false;
+                        productNewPrice.invalidArgument = 'Preço do pacote não condiz com o valor unitário dos produtos'
+                    }
                 }
             }
             validatedProducts.push(productNewPrice)
@@ -62,14 +73,29 @@ const UpdatePrices = async (req, res) => {
         for (let product of productsNewPrices) {
             await knex('products').where({ code: product.code }).update({ sales_price: product.newPrice })
         }
-        return res.status(200).json({ messagem: 'Produtos atualizados com sucesso!' })
+        return res.status(200).json({ mensagem: 'Produtos atualizados com sucesso!' })
     } catch (error) {
         return res.status(400).json(error.message)
     }
 }
 
-const ValidPrice = (productNewPrice, product, productInDB) => {
-    if (product.newPrice === "\r") {
+const validateCode = async (productNewPrice) => {
+    if (!(productNewPrice.code > 1)) {
+        productNewPrice.valid = false;
+        productNewPrice.invalidArgument = 'Código não corresponde a um produto'
+        return true;
+    }
+    const productExist = await knex('products').where({ code: productNewPrice.code });
+    if (productExist.length === 0) {
+        productNewPrice.valid = false;
+        productNewPrice.invalidArgument = 'Código não corresponde a um produto'
+        return true;
+    }
+    return false;
+}
+
+const ValidatePrice = (productNewPrice, product, productInDB) => {
+    if (product.newPrice === "\r" || !(product.newPrice > 1)) {
         productNewPrice.valid = false;
         productNewPrice.invalidArgument = 'Sem preço informado';
         productNewPrice.newPrice = ""
