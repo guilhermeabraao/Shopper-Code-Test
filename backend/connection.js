@@ -1,5 +1,5 @@
 const knex = require('knex')({
-    client: 'pg',
+    client: 'mysql',
     connection: process.env.DB_URL
 });
 
