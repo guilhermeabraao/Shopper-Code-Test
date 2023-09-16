@@ -2,7 +2,7 @@
 
 ## Instalação de dependências
 
-Para realizar a instalação das dependências necessárias para rodar a aplicação, será necessário abrir o terminal nas pastas "fackend" e "frontend"
+Para realizar a instalação das dependências necessárias para rodar a aplicação, será necessário abrir o terminal nas pastas "backend" e "frontend"
 e executar o seguinte comando
 
 >npm install or yarn install
